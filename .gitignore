@@ -1,0 +1,7 @@
+
+build/*
+dist/*
+qcmspycloud.egg-info/*
+qcmspycloud/__pycache__/*
+qcmspycloud/tools/__pycache__/*
+qcmspycloud/matrix/__pycache__/*

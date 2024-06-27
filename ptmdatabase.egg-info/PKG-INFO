@@ -1,0 +1,7 @@
+Metadata-Version: 2.1
+Name: qcmspycloud
+Version: 0.2.0
+Requires-Dist: streamlit
+Requires-Dist: streamlit-lottie>=0.0.5
+Requires-Dist: seaborn
+Requires-Dist: natsort

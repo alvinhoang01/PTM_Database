@@ -1,0 +1,87 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+        
+        {
+            "name": "Launch via NPM",
+            "request": "launch",
+            "runtimeArgs": [
+                "run-script",
+                "debug"
+            ],
+            "runtimeExecutable": "npm",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "node"
+        },
+
+ 
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": ["run",
+            "D:\\User_Folders\\Documents\\Pycloud project\\qcmspycloud\\qcmspycloud\\Home_page.py",
+            "D:\\User_Folders\\Documents\\Pycloud project\\TEMP"],
+            "console": "integratedTerminal"
+            // "justMyCode": false
+        },
+
+        {
+            "name": "Python: Alvin",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": ["run",
+            "C:\\Users\\maitr\\Documents\\nms\\qcmspycloud\\qcmspycloud\\Home_page.py",
+            "C:\\Users\\maitr\\Documents\\JHU\\MSPYCloud\\CPTAC_GC_G"],
+            "console": "integratedTerminal"
+            // "justMyCode": false
+        },
+
+        {
+            "name": "Python: Alvin_v1",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": ["run",
+            "C:\\Users\\maitr\\Documents\\nms\\qcmspycloud\\qcmspycloud\\Home_page.py",
+            "C:\\Users\\maitr\\Documents\\JHU\\ms-pycloud-electron-test\\2024_0531_TMT18_Phospho"],
+            "console": "integratedTerminal"
+            // "justMyCode": false
+        },
+
+        {
+            "name": "Python: Alvin_v2",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": ["run",
+            "C:\\Users\\maitr\\Documents\\nms\\qcmspycloud\\qcmspycloud\\Home_page.py"],
+            "console": "integratedTerminal"
+            // "justMyCode": false
+        },
+
+        {
+            "name": "Python:Streamlit",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": [
+                "run",
+                "qcmspycloud\\Home_page.py",
+                "D:\\Data\\GastricCAncer\\search0515",
+                "--server.enableXsrfProtection",
+                "false",
+                
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
+}
