@@ -8,7 +8,7 @@ from streamlit_option_menu import option_menu
 # --- Database connection setup ---
 def connect_db():
     return psycopg2.connect(
-        host="172.31.15.77",
+        host="3.91.75.15",
         database="user_auth",
         user="postgres",
         password="Kaka2001!",
