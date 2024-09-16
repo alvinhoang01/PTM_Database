@@ -8,10 +8,11 @@ from streamlit_option_menu import option_menu
 # --- Database connection setup ---
 def connect_db():
     return psycopg2.connect(
-        host="localhost",
+        host="172.31.15.77",
         database="user_auth",
         user="postgres",
         password="Kaka2001!",
+        port="5432"
     )
 
 # --- User sign-up function ---
