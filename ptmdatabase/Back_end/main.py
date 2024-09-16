@@ -12,7 +12,7 @@ async def upload_fasta(file: UploadFile = File(...), email: str = Form(...)):
     current_month = datetime.now().strftime('%B')  # Gets month name like 'January', 'February'
 
     # Define the base directory
-    base_dir = Path("C:\\Users\\maitr\\Documents\\nms\\PTM_Database_Copy\\ptmdatabase\\Storing_Fasta")
+    base_dir = Path("C:\\Users\\Administrator\\Documents\\ptmdatabase\\Storing_Fasta")
 
     # Create the folder structure: year/month/email
     user_dir = base_dir / str(current_year) / current_month / email

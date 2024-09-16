@@ -11,29 +11,51 @@ def connect_db():
         host="localhost",
         database="user_auth",
         user="postgres",
-        password="Kaka2001",
+        password="Kaka2001!",
     )
 
 # --- User sign-up function ---
 def sign_up(email, password):
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-
-    conn = connect_db()
-    cur = conn.cursor()
-
     try:
+        # This will likely fail, but doing it for testing purposes
+        salt = bcrypt.gensalt()
+        hashed_password = bcrypt.hashpw(password, salt)  # Passing password as string (will fail)
+
+        # Print hashed password details for debugging
+        print(f"Hashed Password: {hashed_password}")
+
+    except Exception as e:
+        # Catch any errors during hashing and display them
+        st.error(f"Error during password hashing: {e}")
+        return
+
+    # Database connection and recording
+    try:
+        conn = connect_db()
+        cur = conn.cursor()
+
+        # Insert the email and hashed password (stored in bytes)
         cur.execute(
             sql.SQL("INSERT INTO users (email, hashed_password, created_at) VALUES (%s, %s, %s)"),
-            (email, hashed_password.decode('utf-8'), datetime.now())
+            (email, hashed_password, datetime.now())
         )
         conn.commit()
         st.success(f"User {email} successfully registered!")
+
     except psycopg2.IntegrityError:
         conn.rollback()
         st.error(f"Email {email} already exists.")
+    except Exception as db_error:
+        st.error(f"Database error: {db_error}")
     finally:
-        cur.close()
-        conn.close()
+        try:
+            cur.close()
+            conn.close()
+        except Exception as cleanup_error:
+            st.error(f"Error during connection close: {cleanup_error}")
+
+
+
 
 # --- User login function ---
 def login(email, password):
