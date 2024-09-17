@@ -33,19 +33,14 @@ def main():
     st.markdown("<div class='title'>Welcome to Proteoform Database Generation App</div>", unsafe_allow_html=True)
     st.write("\n")
 
-    st.header("Overview")
-    st.write("""
-    Different from traditional databases, this method integrates phosphosites directly into the entry name and protein sequence. 
-    Additionally, the application offers the option to customize the phosphosites in the protein sequence to a letter or symbol of choice...
-    """)
-
     st.header("Database Upgrade")
     st.write("""
-    Upgrade your database by adding new proteins and phosphorylation sites based on analysis results.
-    This process involves:
-    1. Analyzing the current database for performance.
-    2. Identifying missing proteins or phosphorylation sites.
-    3. Integrating new information into the existing database.
+    Upgrade your FASTA database by adding the modification version of the peptides from your search results.
+    The application offers entries for the following modifications with their annotations in the protein sequence.
+    - Phosphorylation [P]
+    - Acetylation [A]
+    - Ubiquitination [U]
+    - O-linked and N-linked [NxHxFxSxGx]
     """)
     
     # Example of an exit button
