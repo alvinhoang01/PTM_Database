@@ -30,7 +30,7 @@ def send_fasta_to_backend(fasta_data, input_filename, username):
     # Send the in-memory fasta data as a file-like object with the correct file name
     files = {'file': (fasta_file_name, fasta_data, 'text/plain')}
     data = {'username': username, 'filename': fasta_file_name}  # Send the file name to the backend
-    response = requests.post("http://127.0.0.1:8000/upload-fasta/", files=files, data=data)
+    response = requests.post("http://3.91.75.15:8000/upload-fasta/", files=files, data=data)
     
     st.write(f"Backend response: {response.status_code}, {response.text}")  # Debug the response
     return response.json()
