@@ -144,8 +144,8 @@ def main():
 
         try:
             # In-memory buffers for fasta and missing info
-            fasta_buffer = io.StringIO()  # Fixed issue by adding io.StringIO()
-            missing_info_buffer = io.StringIO()  # Fixed issue by adding io.StringIO()
+            fasta_buffer = io.StringIO()
+            missing_info_buffer = io.StringIO()
 
             df = parse_matrix_file(matrix_file)
             uniprot_sequences = load_uniprot_sequences(st.session_state['original_fasta_dir'])
@@ -157,53 +157,14 @@ def main():
             inferred_protein_ids = set()
 
             start_time = time.time()
-            num_cpus = cpu_count()
-            chunked_peptide_list = list(chunk_list(peptide_list, max(1, len(peptide_list) // num_cpus)))
 
-            with Pool(num_cpus) as pool:
-                if 'Phosphorylation' in modification_types:
-                    args = [(chunk, uniprot_sequences) for chunk in chunked_peptide_list]
-                    results = list(tqdm(pool.imap(process_peptide_phosphorylation, args), total=len(chunked_peptide_list), desc="Processing Phosphorylation"))
-                    for result in results:
-                        phospho_ptm_entries, phospho_missing_peptides, phospho_inferred_protein_ids = result
-                        ptm_entries.extend(phospho_ptm_entries)
-                        missing_peptides.extend(phospho_missing_peptides)
-                        inferred_protein_ids.update(phospho_inferred_protein_ids)
-                if 'Acetylation' in modification_types:
-                    args = [(chunk, uniprot_sequences) for chunk in chunked_peptide_list]
-                    results = list(tqdm(pool.imap(process_peptide_acetylation, args), total=len(chunked_peptide_list), desc="Processing Acetylation"))
-                    for result in results:
-                        acetyl_ptm_entries, acetyl_missing_peptides, acetyl_inferred_protein_ids = result
-                        ptm_entries.extend(acetyl_ptm_entries)
-                        missing_peptides.extend(acetyl_missing_peptides)
-                        inferred_protein_ids.update(acetyl_inferred_protein_ids)
-
-                if 'Ubiquitination' in modification_types:
-                    args = [(chunk, uniprot_sequences) for chunk in chunked_peptide_list]
-                    results = list(tqdm(pool.imap(process_peptide_ubiquitination, args), total=len(chunked_peptide_list), desc="Processing Ubiquitination"))
-                    for result in results:
-                        ubiquitin_ptm_entries, ubiquitin_missing_peptides, ubiquitin_inferred_protein_ids = result
-                        ptm_entries.extend(ubiquitin_ptm_entries)
-                        missing_peptides.extend(ubiquitin_missing_peptides)
-                        inferred_protein_ids.update(ubiquitin_inferred_protein_ids)
-
-                if 'N-linked Glycosylation' in modification_types:
-                    args = [(chunk, uniprot_sequences, 'N-linked Glycosylation') for chunk in chunked_peptide_list]
-                    results = list(tqdm(pool.imap(process_peptide_glycosylation, args), total=len(chunked_peptide_list), desc="Processing N-linked Glycosylation"))
-                    for result in results:
-                        nlinked_ptm_entries, nlinked_missing_peptides, nlinked_inferred_protein_ids = result
-                        ptm_entries.extend(nlinked_ptm_entries)
-                        missing_peptides.extend(nlinked_missing_peptides)
-                        inferred_protein_ids.update(nlinked_inferred_protein_ids)
-
-                if 'O-linked Glycosylation' in modification_types:
-                    args = [(chunk, uniprot_sequences, 'O-linked Glycosylation') for chunk in chunked_peptide_list]
-                    results = list(tqdm(pool.imap(process_peptide_glycosylation, args), total=len(chunked_peptide_list), desc="Processing O-linked Glycosylation"))
-                    for result in results:
-                        olinked_ptm_entries, olinked_missing_peptides, olinked_inferred_protein_ids = result
-                        ptm_entries.extend(olinked_ptm_entries)
-                        missing_peptides.extend(olinked_missing_peptides)
-                        inferred_protein_ids.update(olinked_inferred_protein_ids)
+            # Direct processing (without multiprocessing for now)
+            if 'Phosphorylation' in modification_types:
+                result = process_peptide_phosphorylation((peptide_list, uniprot_sequences))
+                phospho_ptm_entries, phospho_missing_peptides, phospho_inferred_protein_ids = result
+                ptm_entries.extend(phospho_ptm_entries)
+                missing_peptides.extend(phospho_missing_peptides)
+                inferred_protein_ids.update(phospho_inferred_protein_ids)
 
             # Write the FASTA file in-memory
             write_fasta(fasta_buffer, uniprot_sequences, ptm_entries, inferred_protein_ids, include_global_protein_entries)
@@ -243,9 +204,9 @@ def main():
                 file_name="missing_info.csv",
                 mime="text/csv"
             )
-            # ***Send the generated FASTA file to the backend***
-            username = st.session_state.get('username', 'anonymous')  # Get the username stored in session
+
             # Send the FASTA file to the backend
+            username = st.session_state.get('username', 'anonymous')
             send_fasta_to_backend(fasta_buffer.getvalue(), input_filename, username)
 
         except Exception as e:
