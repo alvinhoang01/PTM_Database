@@ -245,44 +245,37 @@ def generate_ptm_entries_glyco(peptide_list, uniprot_sequences, ptm_type):
     return ptm_entries, missing_peptides, inferred_protein_ids
 
 def write_fasta(output_file, uniprot_sequences, ptm_entries, inferred_protein_ids, include_global_protein_entries=False):
-    with open(output_file, 'w') as file:
-        written_entries = set()
-        write_count = 0
-        
-        for header, sequence in ptm_entries:
-            formatted_sequence = format_fasta_sequence(sequence)
-            entry = (header, formatted_sequence)
-            if entry not in written_entries:
-                file.write(f">{header}\n{formatted_sequence}\n")
-                written_entries.add(entry)
-                write_count += 1
-        
-        if include_global_protein_entries:
-            for protein_id in inferred_protein_ids:
-                if protein_id in uniprot_sequences:
-                    data = uniprot_sequences[protein_id]
-                    header = data['header']
-                    sequence = format_fasta_sequence(data['sequence'])
-                    entry = (header, sequence)
-                    if entry not in written_entries:
-                        file.write(f">{header}\n{sequence}\n")
-                        written_entries.add(entry)
-                        write_count += 1
+    written_entries = set()
+    write_count = 0
+    
+    for header, sequence in ptm_entries:
+        formatted_sequence = format_fasta_sequence(sequence)
+        entry = (header, formatted_sequence)
+        if entry not in written_entries:
+            output_file.write(f">{header}\n{formatted_sequence}\n")  # Writing to StringIO
+            written_entries.add(entry)
+            write_count += 1
+    
+    if include_global_protein_entries:
+        for protein_id in inferred_protein_ids:
+            if protein_id in uniprot_sequences:
+                data = uniprot_sequences[protein_id]
+                header = data['header']
+                sequence = format_fasta_sequence(data['sequence'])
+                entry = (header, sequence)
+                if entry not in written_entries:
+                    output_file.write(f">{header}\n{sequence}\n")  # Writing to StringIO
+                    written_entries.add(entry)
+                    write_count += 1
 
-        print(f"Total unique entries written: {write_count}")
+    print(f"Total unique entries written: {write_count}")
 
-def write_missing_info(output_file_dir, missing_peptides):
+def write_missing_info(output_file, missing_peptides):
     # Convert the missing peptides list into a DataFrame and remove duplicates
     missing_peptides_df = pd.DataFrame(missing_peptides, columns=['Peptide Sequence']).drop_duplicates()
 
-    # Set the output file path with the new name
-    output_file = os.path.join(output_file_dir, 'missing_peptides.xlsx')
-
-    # Write the missing peptides to an Excel file
-    with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
-        missing_peptides_df.to_excel(writer, sheet_name='Missing Peptides', index=False)
-
-    print(f"Missing peptides have been recorded in {output_file}")
+    # Writing the DataFrame to an Excel-like format in-memory (using `to_excel` on a BytesIO)
+    output_file.write(missing_peptides_df.to_csv(index=False))  # Writing to StringIO (csv for simplicity)
 
 def count_entries_in_fasta(fasta_file):
     entries = set()
