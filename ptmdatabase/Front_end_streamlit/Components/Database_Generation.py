@@ -19,7 +19,7 @@ from tools.database_tools import (
     generate_ptm_entries_glyco,
 )
 
-def send_fasta_to_backend(fasta_file_path, email):
+def send_fasta_to_backend(fasta_file_path, username):
     with open(fasta_file_path, "rb") as file:
         files = {'file': file}
         data = {'username': username}  # Include the email in the form data
@@ -39,20 +39,15 @@ def initialize_session_state():
     if 'missing_info_file' not in st.session_state:
         st.session_state['missing_info_file'] = ""
 
-def valid_phosphorylation_annotation(annotation):
-    # Match [P] or [79.XXX] where X is any decimal digit
-    return annotation == '[P]' or re.match(r'\[79\.\d+\]', annotation)
-
 def process_peptide_phosphorylation(args):
     chunk, uniprot_sequences = args
-    ptm_entries, missing_peptides, inferred_protein_ids = [], [], set() 
+    ptm_entries, missing_peptides, inferred_protein_ids = [], [], set()
     for peptide in chunk:
-        # Filter the peptide to ensure it contains valid phosphorylation annotations
-        if any(valid_phosphorylation_annotation(ann) for ann in peptide):
-            entries, peptides, inferred_ids = generate_ptm_entries([peptide], uniprot_sequences, 'Phosphorylation')
-            ptm_entries.extend(entries)
-            missing_peptides.extend(peptides)
-            inferred_protein_ids.update(inferred_ids)
+        entries, peptides, inferred_ids = generate_ptm_entries([peptide], uniprot_sequences, 'Phosphorylation')
+        ptm_entries.extend(entries)
+        missing_peptides.extend(peptides)
+        inferred_protein_ids.update(inferred_ids)
+    return ptm_entries, missing_peptides, inferred_protein_ids
     
     return ptm_entries, missing_peptides, inferred_protein_ids
 
@@ -126,14 +121,6 @@ def main():
 
     with st.form(key='database_generation_form', clear_on_submit=False):
         matrix_file = st.file_uploader('Peptide List (xlsx or tsv):', type=['xlsx', 'tsv'])
-        if matrix_file:
-            # Save the uploaded file in a temporary directory or process it directly
-            if matrix_file.name.endswith('.xlsx'):
-                df = pd.read_excel(matrix_file)
-            elif matrix_file.name.endswith('.tsv'):
-                df = pd.read_csv(matrix_file, sep='\t')
-            else:
-                st.error("Unsupported file format. Please upload .xlsx or .tsv files only.")
 
         new_db_dir = st.text_input('Directory to Store Generated Database:', value=st.session_state['new_db_dir'])
         st.session_state['new_db_dir'] = new_db_dir
@@ -146,9 +133,20 @@ def main():
         include_global_protein_entries = st.checkbox('Include Global Protein Entries', value=False)
 
         submit_button = st.form_submit_button(label='Generate Database')
+
         if submit_button:
+            if not matrix_file:
+                st.error("No file uploaded. Please upload a valid .xlsx or .tsv file.")
+                return
+
             st.session_state['work_dir'] = matrix_file
             output_file = new_db_dir
+
+            # Ensure the directory exists
+            if not Path(output_file).exists():
+                st.error(f"The directory '{output_file}' does not exist. Please provide a valid directory.")
+                return
+
             missing_info_file = os.path.dirname(output_file)
             st.session_state['missing_info_file'] = missing_info_file
 
@@ -164,7 +162,7 @@ def main():
 
                 start_time = time.time()
                 num_cpus = cpu_count()
-                chunked_peptide_list = list(chunk_list(peptide_list, max(1, len(peptide_list) // num_cpus)))
+                chunked_peptide_list = list(chunk_list(peptide_list, max(1, len(peptide_list) // num_cpus)))      
 
                 with Pool(num_cpus) as pool:
                     if 'Phosphorylation' in modification_types:
@@ -224,13 +222,14 @@ def main():
                 st.success("FASTA database has been successfully created with protein and PTM entries.")
                 write_missing_info(missing_info_file, missing_peptides)
 
-                # **Add this line to send the generated FASTA file to the backend**
-                response = send_fasta_to_backend(output_file, st.session_state.get('email', 'anonymous'))
+                # ***Send the generated FASTA file to the backend***
+                username = st.session_state.get('username', 'anonymous')  # Get the username stored in session
+                response = send_fasta_to_backend(output_file, username)
 
-            except FileNotFoundError as e:
-                st.error(f"Error: {e}")
             except Exception as e:
-                st.error(f"An unexpected error occurred: {e}")
+                st.error(f"An error occurred: {e}")
+
+
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:

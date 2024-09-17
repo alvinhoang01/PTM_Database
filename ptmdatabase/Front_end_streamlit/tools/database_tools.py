@@ -19,11 +19,11 @@ import re
 # 7. All of the unmatched protein ID (Proteins that are listed in the matrix file but cannot be found in the UniProt database), peptide sequence (Peptides that are identified in the matrix file but cannot be found within the corresponding protein sequence in the UniProt database), and PTM sites (Modifications that are identified in the matrix file but cannot be found in the PTM-specific library) are recorded in the Excel list located in the same directory of the generated database. 
 
 
-def parse_matrix_file(file_path):
-    if file_path.endswith('.xlsx'):
-        df = pd.read_excel(file_path)
-    elif file_path.endswith('.tsv'):
-        df = pd.read_csv(file_path, sep='\t')
+def parse_matrix_file(file):
+    if file.name.endswith('.xlsx'):
+        df = pd.read_excel(file)
+    elif file.name.endswith('.tsv'):
+        df = pd.read_csv(file, sep='\t')
     else:
         raise ValueError("Unsupported file format. Only .xlsx and .tsv are supported.")
     return df
