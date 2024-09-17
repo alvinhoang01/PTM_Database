@@ -1,4 +1,4 @@
-import requests
+import requests 
 import streamlit as st
 import pandas as pd
 import os
@@ -22,7 +22,7 @@ from tools.database_tools import (
 def send_fasta_to_backend(fasta_file_path, email):
     with open(fasta_file_path, "rb") as file:
         files = {'file': file}
-        data = {'email': email}  # Include the email in the form data
+        data = {'username': username}  # Include the email in the form data
         response = requests.post("http://127.0.0.1:8000/upload-fasta/", files=files, data=data)
         return response.json()
 
@@ -39,11 +39,49 @@ def initialize_session_state():
     if 'missing_info_file' not in st.session_state:
         st.session_state['missing_info_file'] = ""
 
+def valid_phosphorylation_annotation(annotation):
+    # Match [P] or [79.XXX] where X is any decimal digit
+    return annotation == '[P]' or re.match(r'\[79\.\d+\]', annotation)
+
 def process_peptide_phosphorylation(args):
+    chunk, uniprot_sequences = args
+    ptm_entries, missing_peptides, inferred_protein_ids = [], [], set() 
+    for peptide in chunk:
+        # Filter the peptide to ensure it contains valid phosphorylation annotations
+        if any(valid_phosphorylation_annotation(ann) for ann in peptide):
+            entries, peptides, inferred_ids = generate_ptm_entries([peptide], uniprot_sequences, 'Phosphorylation')
+            ptm_entries.extend(entries)
+            missing_peptides.extend(peptides)
+            inferred_protein_ids.update(inferred_ids)
+    
+    return ptm_entries, missing_peptides, inferred_protein_ids
+
+def process_peptide_acetylation(args):
     chunk, uniprot_sequences = args
     ptm_entries, missing_peptides, inferred_protein_ids = [], [], set()
     for peptide in chunk:
-        entries, peptides, inferred_ids = generate_ptm_entries([peptide], uniprot_sequences, 'Phosphorylation')
+        entries, peptides, inferred_ids = generate_ptm_entries([peptide], uniprot_sequences, 'Acetylation')
+        ptm_entries.extend(entries)
+        missing_peptides.extend(peptides)
+        inferred_protein_ids.update(inferred_ids)
+    return ptm_entries, missing_peptides, inferred_protein_ids
+
+def process_peptide_ubiquitination(args):
+    chunk, uniprot_sequences = args
+    ptm_entries, missing_peptides, inferred_protein_ids = [], [], set()
+    for peptide in chunk:
+        entries, peptides, inferred_ids = generate_ptm_entries([peptide], uniprot_sequences, 'Ubiquitination')
+        ptm_entries.extend(entries)
+        missing_peptides.extend(peptides)
+        inferred_protein_ids.update(inferred_ids)
+    return ptm_entries, missing_peptides, inferred_protein_ids
+
+
+def process_peptide_glycosylation(args):
+    chunk, uniprot_sequences, ptm_type = args
+    ptm_entries, missing_peptides, inferred_protein_ids = [], [], set()
+    for peptide in chunk:
+        entries, peptides, inferred_ids = generate_ptm_entries_glyco([peptide], uniprot_sequences, ptm_type)
         ptm_entries.extend(entries)
         missing_peptides.extend(peptides)
         inferred_protein_ids.update(inferred_ids)
@@ -87,7 +125,16 @@ def main():
     initialize_session_state()
 
     with st.form(key='database_generation_form', clear_on_submit=False):
-        matrix_file = st.text_input('Peptide List (xlsx or tsv):', value=st.session_state['work_dir'])
+        matrix_file = st.file_uploader('Peptide List (xlsx or tsv):', type=['xlsx', 'tsv'])
+        if matrix_file:
+            # Save the uploaded file in a temporary directory or process it directly
+            if matrix_file.name.endswith('.xlsx'):
+                df = pd.read_excel(matrix_file)
+            elif matrix_file.name.endswith('.tsv'):
+                df = pd.read_csv(matrix_file, sep='\t')
+            else:
+                st.error("Unsupported file format. Please upload .xlsx or .tsv files only.")
+
         new_db_dir = st.text_input('Directory to Store Generated Database:', value=st.session_state['new_db_dir'])
         st.session_state['new_db_dir'] = new_db_dir
 
@@ -104,45 +151,86 @@ def main():
             output_file = new_db_dir
             missing_info_file = os.path.dirname(output_file)
             st.session_state['missing_info_file'] = missing_info_file
-            df = parse_matrix_file(matrix_file)
-            uniprot_sequences = load_uniprot_sequences(st.session_state['original_fasta_dir'])
 
-            peptide_list = df.iloc[:, 0].tolist()
+            try:
+                df = parse_matrix_file(matrix_file)
+                uniprot_sequences = load_uniprot_sequences(st.session_state['original_fasta_dir'])
 
-            ptm_entries = []
-            missing_peptides = []
-            inferred_protein_ids = set()
+                peptide_list = df.iloc[:, 0].tolist()
 
-            start_time = time.time()
-            num_cpus = cpu_count()
-            chunked_peptide_list = list(chunk_list(peptide_list, max(1, len(peptide_list) // num_cpus)))      
+                ptm_entries = []
+                missing_peptides = []
+                inferred_protein_ids = set()
 
-            with Pool(num_cpus) as pool:
-                if 'Phosphorylation' in modification_types:
-                    args = [(chunk, uniprot_sequences) for chunk in chunked_peptide_list]
-                    results = list(tqdm(pool.imap(process_peptide_phosphorylation, args), total=len(chunked_peptide_list), desc="Processing Phosphorylation"))
-                    for result in results:
-                        phospho_ptm_entries, phospho_missing_peptides, phospho_inferred_protein_ids = result
-                        ptm_entries.extend(phospho_ptm_entries)
-                        missing_peptides.extend(phospho_missing_peptides)
-                        inferred_protein_ids.update(phospho_inferred_protein_ids)
+                start_time = time.time()
+                num_cpus = cpu_count()
+                chunked_peptide_list = list(chunk_list(peptide_list, max(1, len(peptide_list) // num_cpus)))
 
-                # (Add other modification processing here)
+                with Pool(num_cpus) as pool:
+                    if 'Phosphorylation' in modification_types:
+                        args = [(chunk, uniprot_sequences) for chunk in chunked_peptide_list]
+                        results = list(tqdm(pool.imap(process_peptide_phosphorylation, args), total=len(chunked_peptide_list), desc="Processing Phosphorylation"))
+                        for result in results:
+                            phospho_ptm_entries, phospho_missing_peptides, phospho_inferred_protein_ids = result
+                            ptm_entries.extend(phospho_ptm_entries)
+                            missing_peptides.extend(phospho_missing_peptides)
+                            inferred_protein_ids.update(phospho_inferred_protein_ids)
 
-            write_fasta(output_file, uniprot_sequences, ptm_entries, inferred_protein_ids, include_global_protein_entries)
-            
-            total_entries, unique_protein_ids = count_entries_in_fasta(output_file)
-            st.write(f"Total entries in generated database: {total_entries}")
-            st.write(f"Unique protein IDs in generated database: {unique_protein_ids}")
+                    if 'Acetylation' in modification_types:
+                        args = [(chunk, uniprot_sequences) for chunk in chunked_peptide_list]
+                        results = list(tqdm(pool.imap(process_peptide_acetylation, args), total=len(chunked_peptide_list), desc="Processing Acetylation"))
+                        for result in results:
+                            acetyl_ptm_entries, acetyl_missing_peptides, acetyl_inferred_protein_ids = result
+                            ptm_entries.extend(acetyl_ptm_entries)
+                            missing_peptides.extend(acetyl_missing_peptides)
+                            inferred_protein_ids.update(acetyl_inferred_protein_ids)
 
-            elapsed_time = time.time() - start_time
-            st.write(f"Elapsed time: {elapsed_time:.2f} seconds")
+                    if 'Ubiquitination' in modification_types:
+                        args = [(chunk, uniprot_sequences) for chunk in chunked_peptide_list]
+                        results = list(tqdm(pool.imap(process_peptide_ubiquitination, args), total=len(chunked_peptide_list), desc="Processing Ubiquitination"))
+                        for result in results:
+                            ubiquitin_ptm_entries, ubiquitin_missing_peptides, ubiquitin_inferred_protein_ids = result
+                            ptm_entries.extend(ubiquitin_ptm_entries)
+                            missing_peptides.extend(ubiquitin_missing_peptides)
+                            inferred_protein_ids.update(ubiquitin_inferred_protein_ids)
 
-            st.success("FASTA database has been successfully created with protein and PTM entries.")
-            write_missing_info(missing_info_file, missing_peptides)
+                    if 'N-linked Glycosylation' in modification_types:
+                        args = [(chunk, uniprot_sequences, 'N-linked Glycosylation') for chunk in chunked_peptide_list]
+                        results = list(tqdm(pool.imap(process_peptide_glycosylation, args), total=len(chunked_peptide_list), desc="Processing N-linked Glycosylation"))
+                        for result in results:
+                            nlinked_ptm_entries, nlinked_missing_peptides, nlinked_inferred_protein_ids = result
+                            ptm_entries.extend(nlinked_ptm_entries)
+                            missing_peptides.extend(nlinked_missing_peptides)
+                            inferred_protein_ids.update(nlinked_inferred_protein_ids)
 
-            # **Add this line to send the generated FASTA file to the backend**
-            response = send_fasta_to_backend(output_file, st.session_state['email'])
+                    if 'O-linked Glycosylation' in modification_types:
+                        args = [(chunk, uniprot_sequences, 'O-linked Glycosylation') for chunk in chunked_peptide_list]
+                        results = list(tqdm(pool.imap(process_peptide_glycosylation, args), total=len(chunked_peptide_list), desc="Processing O-linked Glycosylation"))
+                        for result in results:
+                            olinked_ptm_entries, olinked_missing_peptides, olinked_inferred_protein_ids = result
+                            ptm_entries.extend(olinked_ptm_entries)
+                            missing_peptides.extend(olinked_missing_peptides)
+                            inferred_protein_ids.update(olinked_inferred_protein_ids)
+
+                write_fasta(output_file, uniprot_sequences, ptm_entries, inferred_protein_ids, include_global_protein_entries)
+                
+                total_entries, unique_protein_ids = count_entries_in_fasta(output_file)
+                st.write(f"Total entries in generated database: {total_entries}")
+                st.write(f"Unique protein IDs in generated database: {unique_protein_ids}")
+
+                elapsed_time = time.time() - start_time
+                st.write(f"Elapsed time: {elapsed_time:.2f} seconds")
+
+                st.success("FASTA database has been successfully created with protein and PTM entries.")
+                write_missing_info(missing_info_file, missing_peptides)
+
+                # **Add this line to send the generated FASTA file to the backend**
+                response = send_fasta_to_backend(output_file, st.session_state.get('email', 'anonymous'))
+
+            except FileNotFoundError as e:
+                st.error(f"Error: {e}")
+            except Exception as e:
+                st.error(f"An unexpected error occurred: {e}")
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
