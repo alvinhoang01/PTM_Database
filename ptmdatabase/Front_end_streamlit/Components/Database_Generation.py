@@ -121,9 +121,7 @@ def main():
 
     with st.form(key='database_generation_form', clear_on_submit=False):
         matrix_file = st.file_uploader('Peptide List (xlsx or tsv):', type=['xlsx', 'tsv'])
-
-        new_db_dir = st.text_input('Directory to Store Generated Database:', value=st.session_state['new_db_dir'])
-        st.session_state['new_db_dir'] = new_db_dir
+        output_path = st.text_input('Enter the full path for the output file (including the file name):', value=st.session_state['new_db_dir'])
 
         modification_types = st.multiselect(
             'Select PTM Types to Process',
@@ -139,16 +137,24 @@ def main():
                 st.error("No file uploaded. Please upload a valid .xlsx or .tsv file.")
                 return
 
-            st.session_state['work_dir'] = matrix_file
-            output_file = new_db_dir
+            # Ensure there's a valid path and separate the directory and file name
+            output_dir = os.path.dirname(output_path)  # Directory part of the path
+            file_name = os.path.basename(output_path)  # File name part of the path
 
-            # Ensure the directory exists
-            if not Path(output_file).exists():
-                st.error(f"The directory '{output_file}' does not exist. Please provide a valid directory.")
+            # Ensure the file has .fasta extension
+            if not file_name.endswith('.fasta'):
+                file_name += '.fasta'
+
+            # Construct the full output path with the corrected file name
+            output_file = os.path.join(output_dir, file_name)
+
+            # Check if the directory exists
+            if not os.path.isdir(output_dir):
+                st.error(f"The directory '{output_dir}' does not exist. Please provide a valid directory.")
                 return
 
-            missing_info_file = os.path.dirname(output_file)
-            st.session_state['missing_info_file'] = missing_info_file
+            st.session_state['new_db_dir'] = output_dir  # Store the directory for future use
+            missing_info_file = output_dir  # Directory to store missing info
 
             try:
                 df = parse_matrix_file(matrix_file)
