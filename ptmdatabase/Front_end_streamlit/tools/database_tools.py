@@ -64,10 +64,10 @@ def extract_modifications(peptide, ptm_type):
                 if ptm_type == 'Phosphorylation' and mod_residue in "STY":
                     if mod_annotation == 'P' or re.match(r'79(\.\d+)?', mod_annotation):
                         modifications.append((mod_residue, f"{mod_residue}{relative_position + 1}P", relative_position))
-                elif ptm_type == 'Acetylation' and mod_residue == 'K':
+                if ptm_type == 'Acetylation':
                     if mod_annotation == 'A' or re.match(r'42(\.\d+)?', mod_annotation):
                         modifications.append((mod_residue, f"{mod_residue}{relative_position + 1}A", relative_position))
-                elif ptm_type == 'Ubiquitination' and mod_residue == 'K':
+                if ptm_type == 'Ubiquitination':
                     if mod_annotation == 'U' or re.match(r'114(\.\d+)?', mod_annotation):
                         modifications.append((mod_residue, f"{mod_residue}{relative_position + 1}U", relative_position))
                 i = end + 1
@@ -78,6 +78,41 @@ def extract_modifications(peptide, ptm_type):
             clean_peptide += peptide[i]
             i += 1
     return clean_peptide, modifications
+
+# Helper function to process modifications
+def process_modifications(peptide_sequence, protein_id, uniprot_sequences, modifications):
+    protein_data = uniprot_sequences[protein_id]
+    protein_sequence = protein_data['sequence']
+    peptide_start = protein_sequence.find(peptide_sequence)
+
+    mod_descriptions = []
+
+    # Loop through modifications and adjust them relative to the protein sequence
+    for mod in modifications:
+        if len(mod) == 3:  # Ensure it follows the (residue, description, position) format
+            mod_residue, mod_desc, relative_position = mod
+            site_position = peptide_start + relative_position + 1
+
+            # Determine the appropriate letter based on the modification type
+            mod_letter = mod_desc[-1]  # Extract the modification letter from the description
+            mod_descriptions.append(f"{mod_residue}{site_position}{mod_letter}")
+        else:
+            raise ValueError(f"Modification format is incorrect: {mod}. Expected (residue, description, position).")
+
+    # Construct the new header
+    mod_description = '_'.join(mod_descriptions)
+    new_header = f"sp|{protein_id}|{mod_description}|{protein_data['header'].split('|', 2)[2]}"
+
+    # Annotate the protein sequence with modification annotations
+    modified_protein_sequence = list(protein_sequence)
+    for mod in modifications:
+        if len(mod) == 3:
+            mod_residue, mod_desc, relative_position = mod
+            site_position = peptide_start + relative_position + 1
+            modified_protein_sequence[site_position - 1] += f"[{mod_desc[-1]}]"
+
+    modified_protein_sequence = ''.join(modified_protein_sequence)
+    return (new_header, modified_protein_sequence)
 
 def generate_ptm_entries(peptide_list, uniprot_sequences, ptm_type):
     ptm_entries = []
@@ -142,56 +177,27 @@ def generate_ptm_entries(peptide_list, uniprot_sequences, ptm_type):
 
     return ptm_entries, missing_peptides, inferred_protein_ids
 
-
-# Helper function to process modifications
-def process_modifications(peptide_sequence, protein_id, uniprot_sequences, modifications):
-    protein_data = uniprot_sequences[protein_id]
-    protein_sequence = protein_data['sequence']
-    peptide_start = protein_sequence.find(peptide_sequence)
-
-    mod_descriptions = []
-    
-    # Loop through modifications and adjust them relative to the protein sequence
-    for mod in modifications:
-        if len(mod) == 3:  # Ensure it follows the (residue, description, position) format
-            mod_residue, mod_desc, relative_position = mod
-            site_position = peptide_start + relative_position + 1
-            mod_descriptions.append(f"{mod_residue}{site_position}P")
-        else:
-            raise ValueError(f"Modification format is incorrect: {mod}. Expected (residue, description, position).")
-
-    # Construct the new header
-    mod_description = '_'.join(mod_descriptions)
-    new_header = f"sp|{protein_id}|{mod_description}|{protein_data['header'].split('|', 2)[2]}"
-
-    # Annotate the protein sequence with modification annotations
-    modified_protein_sequence = list(protein_sequence)
-    for mod in modifications:
-        if len(mod) == 3:
-            mod_residue, mod_desc, relative_position = mod
-            site_position = peptide_start + relative_position + 1
-            modified_protein_sequence[site_position - 1] += f"[{mod_desc[-1]}]"
-
-    modified_protein_sequence = ''.join(modified_protein_sequence)
-    return (new_header, modified_protein_sequence)
-
-
 # Glyco processing
-def extract_glyco_modifications(peptide):
+def extract_glyco_modifications(peptide, ptm_type):
     modifications = []
     clean_peptide = ""
     i = 0
-    glyco_pattern = re.compile(r'([HNFSG]\d+)+')
+
+    glyco_pattern = re.compile(r'N\d+H\d+F\d+S\d+G\d+')
+
     while i < len(peptide):
         if peptide[i] == '[':
-            # Find the closing parenthesis
             end = peptide.find(']', i)
             if end != -1:
                 mod_annotation = peptide[i+1:end]
                 mod_residue = clean_peptide[-1]
                 relative_position = len(clean_peptide) - 1
-                if glyco_pattern.fullmatch(mod_annotation):
-                    modifications.append((mod_residue, mod_annotation, relative_position))
+                modifications.append({
+                    'residue': mod_residue,
+                    'annotation': mod_annotation,
+                    'position': relative_position,
+                    'original_position': i  # Track original position in the peptide
+                })
                 i = end + 1
             else:
                 clean_peptide += peptide[i]
@@ -199,48 +205,105 @@ def extract_glyco_modifications(peptide):
         else:
             clean_peptide += peptide[i]
             i += 1
+
     return clean_peptide, modifications
+
+def process_glyco_modifications(peptide_sequence, protein_id, uniprot_sequences, modifications, ptm_type):
+    protein_data = uniprot_sequences[protein_id]
+    protein_sequence = protein_data['sequence']
+    peptide_start = protein_sequence.find(peptide_sequence)
+
+    mod_descriptions = []
+
+    if modifications:  # Check if modifications exist
+        # Process each glyco modification and adjust based on the protein-level positions
+        for mod in modifications:
+            mod_residue, mod_annotation, relative_position = mod['residue'], mod['annotation'], mod['position']
+            site_position = peptide_start + relative_position + 1
+
+            # Handle N-linked and O-linked glycosylation annotations
+            if ptm_type == 'N-linked Glycosylation':
+                mod_description = f"N{site_position}[{mod_annotation}]"
+            elif ptm_type == 'O-linked Glycosylation':
+                mod_description = f"{mod_residue}{site_position}[{mod_annotation}]"
+
+            mod_descriptions.append(mod_description)
+
+        # Ensure the mod_description is properly assigned
+        if not mod_descriptions:
+            raise ValueError("No valid modifications found for this peptide.")
+
+        # Join modification descriptions to form the header string
+        mod_description_str = '_'.join(mod_descriptions)
+        new_header = f"sp|{protein_id}|{mod_description_str}|{protein_data['header'].split('|', 2)[2]}"
+
+        # Annotate the protein sequence with the modification annotations
+        modified_protein_sequence = list(protein_sequence)
+        for mod in modifications:
+            mod_residue, mod_annotation, relative_position = mod['residue'], mod['annotation'], mod['position']
+            site_position = peptide_start + relative_position + 1
+            modified_protein_sequence[site_position - 1] += f"[{mod_annotation}]"
+
+        modified_protein_sequence = ''.join(modified_protein_sequence)
+        return new_header, modified_protein_sequence
+
+    else:
+        # Return original header and sequence if no modifications are found
+        return protein_data['header'], protein_data['sequence']
 
 def generate_ptm_entries_glyco(peptide_list, uniprot_sequences, ptm_type):
     ptm_entries = []
     missing_peptides = []
     inferred_protein_ids = set()
 
-    for peptide in peptide_list:
-        peptide_sequence, modifications = extract_glyco_modifications(peptide)
-        found_protein = False
+    peptide_to_proteins = {}
+    protein_to_peptides = {}
 
+    # Step 1: Build peptide-to-protein mapping and protein-to-peptide mapping
+    for peptide in peptide_list:
+        peptide_sequence, modifications = extract_glyco_modifications(peptide, ptm_type)
         if not modifications:
-            continue  # Skip if there are no modifications in the peptide
+            continue  # Skip if no modifications
+
+        found_protein = False
+        potential_proteins = []
 
         for protein_id, protein_data in uniprot_sequences.items():
             protein_sequence = protein_data['sequence']
             peptide_start = protein_sequence.find(peptide_sequence)
+
             if peptide_start != -1:
                 found_protein = True
-                inferred_protein_ids.add(protein_id)
+                potential_proteins.append(protein_id)
 
-                for mod in modifications:
-                    mod_residue, mod_annotation, relative_position = mod
-                    # Calculate the protein-level position
-                    site_position = peptide_start + relative_position + 1
-                    
-                    if ptm_type == 'N-linked Glycosylation':
-                        mod_description = f"N{site_position}[{mod_annotation}]"
-                    elif ptm_type == 'O-linked Glycosylation':
-                        mod_description = f"{mod_residue}{site_position}[{mod_annotation}]"
+                if protein_id not in protein_to_peptides:
+                    protein_to_peptides[protein_id] = []
+                protein_to_peptides[protein_id].append(peptide_sequence)
 
-                    # Update header and sequence
-                    new_header = f"sp|{protein_id}|{mod_description}|{protein_data['header'].split('|', 2)[2]}"
-                    modified_protein_sequence = list(protein_sequence)
-                    modified_protein_sequence[site_position - 1] += f"[{mod_annotation}]"
-                    modified_protein_sequence = ''.join(modified_protein_sequence)
-                    ptm_entries.append((new_header, modified_protein_sequence))
+        if found_protein:
+            peptide_to_proteins[peptide_sequence] = potential_proteins
+        else:
+            missing_peptides.append(peptide)
 
-                break
+    # Step 2: Assign unique peptides to their corresponding proteins
+    unique_peptides = {p: ps[0] for p, ps in peptide_to_proteins.items() if len(ps) == 1}
 
-        if not found_protein:
-            missing_peptides.append(('', peptide))
+    for peptide, protein_id in unique_peptides.items():
+        inferred_protein_ids.add(protein_id)
+        mod_descriptions = process_glyco_modifications(peptide, protein_id, uniprot_sequences, modifications, ptm_type)
+        ptm_entries.append(mod_descriptions)
+        peptide_to_proteins.pop(peptide)
+
+    # Step 3: Greedily assign shared peptides
+    while peptide_to_proteins:
+        best_protein = max(protein_to_peptides, key=lambda p: len(set(protein_to_peptides[p]) & set(peptide_to_proteins.keys())))
+        inferred_protein_ids.add(best_protein)
+
+        for peptide in protein_to_peptides[best_protein]:
+            if peptide in peptide_to_proteins:
+                mod_descriptions = process_glyco_modifications(peptide, best_protein, uniprot_sequences, modifications, ptm_type)
+                ptm_entries.append(mod_descriptions)
+                peptide_to_proteins.pop(peptide)
 
     return ptm_entries, missing_peptides, inferred_protein_ids
 
