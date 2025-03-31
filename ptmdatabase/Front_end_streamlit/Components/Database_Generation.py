@@ -38,23 +38,23 @@ def initialize_session_state():
         st.session_state['missing_info_file'] = ""
 
 def process_peptide_multi(args, progress_bar, status_text, total_peptides):
-    chunk, uniprot_sequences, ptm_types = args  # Handle multiple PTM types
+    chunk, uniprot_sequences, ptm_types = args  # ptm_types is a list of all desired PTM types
     ptm_entries, missing_peptides, inferred_protein_ids = [], [], set()
 
-    for ptm_type in ptm_types:  # Loop through each PTM type
-        for i, peptide in enumerate(chunk):
-            # Generate PTM entries for each type
-            entries, peptides, inferred_ids = generate_ptm_entries_multi([peptide], uniprot_sequences, ptm_type)
-            ptm_entries.extend(entries)
-            missing_peptides.extend(peptides)
-            inferred_protein_ids.update(inferred_ids)
+    for i, peptide in enumerate(chunk):
+        # Process all PTM types at once for each peptide
+        entries, peptides, inferred_ids = generate_ptm_entries_multi([peptide], uniprot_sequences, ptm_types)
+        ptm_entries.extend(entries)
+        missing_peptides.extend(peptides)
+        inferred_protein_ids.update(inferred_ids)
 
-            # Update progress
-            progress = (i + 1) / total_peptides
-            progress_bar.progress(progress)
-            status_text.text(f"Processing {ptm_type} peptide {i+1}/{total_peptides} ({progress * 100:.2f}%)")
+        # Update progress
+        progress = (i + 1) / total_peptides
+        progress_bar.progress(progress)
+        status_text.text(f"Processing peptide {i+1}/{total_peptides} ({progress * 100:.2f}%)")
 
     return ptm_entries, missing_peptides, inferred_protein_ids
+
 
 def main():
     st.markdown(
@@ -194,60 +194,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# Previous code
-
-# def process_peptide_phospho_acetyl_ubiquitin(args, progress_bar, status_text, total_peptides):
-#     chunk, uniprot_sequences, ptm_types = args  # Handle multiple PTM types
-#     ptm_entries, missing_peptides, inferred_protein_ids = [], [], set()
-
-#     for ptm_type in ptm_types:  # Loop through each PTM type
-#         for i, peptide in enumerate(chunk):
-#             # Generate PTM entries for each type
-#             entries, peptides, inferred_ids = generate_ptm_entries([peptide], uniprot_sequences, ptm_type)
-#             ptm_entries.extend(entries)
-#             missing_peptides.extend(peptides)
-#             inferred_protein_ids.update(inferred_ids)
-
-#             # Update progress
-#             progress = (i + 1) / total_peptides
-#             progress_bar.progress(progress)
-#             status_text.text(f"Processing {ptm_type} peptide {i+1}/{total_peptides} ({progress * 100:.2f}%)")
-
-#     return ptm_entries, missing_peptides, inferred_protein_ids
-
-# def process_peptide_glycosylation(args, progress_bar, status_text, total_peptides):
-#     chunk, uniprot_sequences, ptm_types = args
-#     ptm_entries, missing_peptides, inferred_protein_ids = [], [], set()
-
-#     for ptm_type in ptm_types: 
-#         for i, peptide in enumerate(chunk):
-#             entries, peptides, inferred_ids = generate_ptm_entries_glyco([peptide], uniprot_sequences, ptm_type)
-#             ptm_entries.extend(entries)
-#             missing_peptides.extend(peptides)
-#             inferred_protein_ids.update(inferred_ids)
-
-#             # Update progress
-#             progress = (i + 1) / total_peptides
-#             progress_bar.progress(progress)
-#             status_text.text(f"Processing glycosylation {i+1}/{total_peptides} ({progress * 100:.2f}%)")
-
-#     return ptm_entries, missing_peptides, inferred_protein_ids
-
-# # Process phosphorylation, acetylation, ubiquitination
-            # if any(ptm in modification_types for ptm in ['Phosphorylation', 'Acetylation', 'Ubiquitination']):
-            #     result = process_peptide_phospho_acetyl_ubiquitin((peptide_list, uniprot_sequences, modification_types), progress_bar, status_text, total_peptides)
-            #     phospho_ptm_entries, phospho_missing_peptides, phospho_inferred_protein_ids = result
-            #     ptm_entries.extend(phospho_ptm_entries)
-            #     missing_peptides.extend(phospho_missing_peptides)
-            #     inferred_protein_ids.update(phospho_inferred_protein_ids)
-
-            # # Process glycosylation
-            # if any(ptm in modification_types for ptm in ['N-linked Glycosylation', 'O-linked Glycosylation']):
-            #     result = process_peptide_glycosylation((peptide_list, uniprot_sequences, modification_types), progress_bar, status_text, total_peptides)
-            #     glyco_ptm_entries, glyco_missing_peptides, glyco_inferred_protein_ids = result
-            #     ptm_entries.extend(glyco_ptm_entries)
-            #     missing_peptides.extend(glyco_missing_peptides)
-            #     inferred_protein_ids.update(glyco_inferred_protein_ids)
-
-
