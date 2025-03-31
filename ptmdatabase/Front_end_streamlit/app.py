@@ -15,7 +15,7 @@ def display_sidebar_and_pages(username):
     with st.sidebar:
         page = option_menu(
             menu_title=None,
-            options=["Home Page", "Database Generation", "Matrix Analysis"],
+            options=["Home Page", "Database Generation"],
             icons=["house", "database", "bar-chart-line"],
             menu_icon="cast",
             default_index=0,
@@ -52,9 +52,9 @@ def display_sidebar_and_pages(username):
         from Components.Database_Generation import main as show_database_page
         show_database_page()
 
-    elif page == "Matrix Analysis":
-        from Components.Matrix_analysis import main as show_matrix_analysis_page
-        show_matrix_analysis_page()
+    # elif page == "Matrix Analysis":
+    #     from Components.Matrix_analysis import main as show_matrix_analysis_page
+    #     show_matrix_analysis_page()
 
     # Add logout button to the sidebar
     if st.sidebar.button('🔒 Logout'):

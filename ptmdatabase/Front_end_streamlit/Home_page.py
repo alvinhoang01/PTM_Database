@@ -37,9 +37,9 @@ def main():
     st.write("""
     Upgrade your FASTA database by adding the modification version of the peptides from your search results.
     The application offers entries for the following modifications with their annotations in the protein sequence.
-    - Phosphorylation [P]
-    - Acetylation [A]
-    - Ubiquitination [U]
+    - Phosphorylation 
+    - Acetylation 
+    - Ubiquitination
     - O-linked and N-linked [NxHxFxSxGx]
     """)
     
