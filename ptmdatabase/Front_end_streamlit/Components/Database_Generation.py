@@ -88,7 +88,7 @@ def main():
     initialize_session_state()
 
     with st.form(key='database_generation_form', clear_on_submit=False):
-        matrix_file = st.file_uploader('Peptide List (xlsx or tsv):', type=['xlsx', 'tsv'])
+        matrix_file = st.file_uploader('Modified Peptide List (xlsx or tsv):', type=['xlsx', 'tsv'])
         fasta_file = st.file_uploader('Upload FASTA file', type=['fasta'])
         modification_types = st.multiselect(
             'Select PTM Types to Process',
