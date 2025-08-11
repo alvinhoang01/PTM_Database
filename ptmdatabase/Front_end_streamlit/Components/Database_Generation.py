@@ -13,15 +13,22 @@ from tools.database_tools import (
     count_entries_in_fasta,
 )
 
-def send_fasta_to_backend(fasta_data, input_filename, username):
-    # Derive the FASTA file name from the input file name
+def send_fasta_to_backend(fasta_data, input_filename, username, org, lab_pi):
     fasta_file_name = os.path.splitext(input_filename)[0] + '.fasta'
-
-    # Send the in-memory fasta data as a file-like object with the correct file name
     files = {'file': (fasta_file_name, fasta_data, 'text/plain')}
-    data = {'username': username, 'filename': fasta_file_name}  # Send the file name to the backend
-    response = requests.post("http://3.91.75.15:8000/upload-fasta/", files=files, data=data)
+    data = {
+        'username':     st.session_state.get('username', username or 'anonymous'),
+        'organization': st.session_state.get('org',org),
+        'lab_pi':       st.session_state.get('lab_pi',lab_pi),
+        'consent':      str(st.session_state.get('consent', False)),
+        'filename':     fasta_file_name,
+    }
 
+    # # DEBUG: see exactly what we’re sending
+    # st.caption("Upload payload (client):")
+    # st.json({k: data[k] for k in ("username","organization","lab_pi","filename")})
+
+    response = requests.post("http://3.91.75.15:8000/upload-fasta/", files=files, data=data)    
     return response.json()
 
 def initialize_session_state():
@@ -186,7 +193,9 @@ def main():
 
             # Send the FASTA file to the backend
             username = st.session_state.get('username', 'anonymous')
-            send_fasta_to_backend(fasta_buffer.getvalue(), input_filename, username)
+            org = st.session_state.get('org')
+            lab_pi = st.session_state.get('lab_pi')
+            send_fasta_to_backend(fasta_buffer.getvalue(), input_filename, username, org, lab_pi)
 
         except Exception as e:
             st.error(f"An error occurred: {e}")

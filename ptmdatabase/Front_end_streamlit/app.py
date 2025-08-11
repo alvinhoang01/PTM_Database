@@ -1,11 +1,5 @@
 import streamlit as st
-from datetime import datetime
 from streamlit_option_menu import option_menu
-
-# --- Placeholder for username storage (simulating user authentication) ---
-def record_username(username):
-    st.session_state['username'] = username
-    st.success(f"Username {username} recorded!")
 
 # --- Display Sidebar and Pages ---
 def display_sidebar_and_pages(username):
@@ -60,6 +54,8 @@ def display_sidebar_and_pages(username):
     if st.sidebar.button('🔒 Logout'):
         st.session_state['authenticated'] = False
         st.session_state['username'] = ''
+        st.session_state['org'] = ''
+        st.session_state['lab_pi'] = ''
         st.session_state['signup'] = False
 
 # --- Streamlit interface for username input ---
@@ -76,20 +72,42 @@ def main():
         st.session_state['authenticated'] = False
     if 'username' not in st.session_state:
         st.session_state['username'] = ''
-
+    if 'org' not in st.session_state:
+        st.session_state['org'] = ''
+    if 'lab_pi' not in st.session_state:
+        st.session_state['lab_pi'] = ''
     if st.session_state['authenticated']:
         # If authenticated, show the main content
         display_sidebar_and_pages(st.session_state['username'])
     else:
-        # Simple username input form
-        st.subheader("Enter Username to Continue")
+        st.subheader("User Profile")
+        username = st.text_input("Username", value=st.session_state.get("username",""))
+        org = st.text_input("Organization", value=st.session_state.get("org",""))
+        lab_pi = st.text_input("Lab PI", value=st.session_state.get("lab_pi",""))
+        consent = st.checkbox("I agree to share uploaded FASTA files for QC and aggregate analysis",
+                            value=st.session_state.get("consent", False))
 
-        username = st.text_input("Username")
         enter_clicked = st.button("Enter")
-
         if enter_clicked:
-            record_username(username)
-            st.session_state['authenticated'] = True
+            if not username:
+                st.error("Please enter a Username.")
+            elif not org:
+                st.error("Please enter the Organization.")
+            elif not lab_pi:
+                st.error("Please enter the Lab PI.")
+            elif not consent:
+                st.error("Please agree to the consent checkbox to continue.")
+            else:
+                st.session_state.update({
+                    'username': username,
+                    'org': org,
+                    'lab_pi': lab_pi,
+                    'consent': consent,
+                    'authenticated': True
+                })
+                st.success(f"Username {username} recorded!")
+                st.success(f"Organization {org} recorded!")
+                st.success(f"Lab PI {lab_pi} recorded!")
 
 if __name__ == '__main__':
     main()

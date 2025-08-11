@@ -44,50 +44,105 @@ def extract_modifications_multi(peptide, ptm_types):
     Returns a tuple of (clean_peptide, modifications) where modifications is a list
     of tuples (ptm_type, residue, relative_position, formatted_annotation).
     """
+    peptide = re.sub(r'(?:n)\[\d+(?:\.\d+)?\]', '', peptide)
     modifications = []
     clean_peptide = ""
     i = 0
 
-    # Example glyco pattern (adjust as needed)
+    # Glyco pattern
     glyco_pattern = re.compile(r'N\d+H\d+F\d+S\d+G\d+')
 
+    # Phospho numeric annotations to recognize (string form inside brackets)
+    phospho_numeric = r'(?:79|181|167|243)(?:\.\d+)?$'
+
     while i < len(peptide):
-        if peptide[i] == '[':
+        ch = peptide[i]
+
+        # ----- Bracketed annotation branch -----
+        if ch == '[':
             end = peptide.find(']', i)
             if end != -1:
                 mod_annotation = peptide[i+1:end]
                 if not clean_peptide:
-                    raise ValueError("No residue available for modification in peptide: " + peptide)
+                    # No residue yet to attach this mod to -> skip this block safely
+                    i = end + 1
+                    continue
+
                 mod_residue = clean_peptide[-1]
                 relative_position = len(clean_peptide) - 1
+
                 # Check each requested PTM type
                 for ptm in ptm_types:
                     if ptm == 'Phosphorylation' and mod_residue in "STY":
-                        if mod_annotation == 'P' or re.match(r'^79(\.\d+)?$', mod_annotation):
-                            modifications.append((ptm, mod_residue, relative_position,
-                                                  f"{mod_residue}{relative_position+1}[phospho]"))
+                        # Accept 'P' or numeric masses 79/181/167/243 (optionally with decimals)
+                        if (mod_annotation == 'P') or re.match(r'^' + phospho_numeric, mod_annotation):
+                            modifications.append((
+                                ptm,
+                                mod_residue,
+                                relative_position,
+                                f"{mod_residue}{relative_position+1}[phospho]"
+                            ))
+
                     elif ptm == 'Acetylation':
-                        if mod_annotation == 'A' or re.match(r'^42(\.\d+)?$', mod_annotation):
-                            modifications.append((ptm, mod_residue, relative_position,
-                                                  f"{mod_residue}{relative_position+1}[acetyl]"))
+                        if (mod_annotation == 'A') or re.match(r'^42(?:\.\d+)?$', mod_annotation):
+                            modifications.append((
+                                ptm,
+                                mod_residue,
+                                relative_position,
+                                f"{mod_residue}{relative_position+1}[ac]"
+                            ))
+
                     elif ptm == 'Ubiquitination':
-                        if mod_annotation == 'U' or re.match(r'^114(\.\d+)?$', mod_annotation):
-                            modifications.append((ptm, mod_residue, relative_position,
-                                                  f"{mod_residue}{relative_position+1}[ubiquitin]"))
+                        if (mod_annotation == 'U') or re.match(r'^114(?:\.\d+)?$', mod_annotation):
+                            modifications.append((
+                                ptm,
+                                mod_residue,
+                                relative_position,
+                                f"{mod_residue}{relative_position+1}[ub]"
+                            ))
+
                     elif ptm in ['N-linked Glycosylation', 'O-linked Glycosylation']:
                         if glyco_pattern.match(mod_annotation):
                             if ptm == 'N-linked Glycosylation':
-                                modifications.append((ptm, mod_residue, relative_position,
-                                                      f"N{relative_position+1}[{mod_annotation}]"))
+                                modifications.append((
+                                    ptm,
+                                    mod_residue,
+                                    relative_position,
+                                    f"N{relative_position+1}[{mod_annotation}]"
+                                ))
                             else:
-                                modifications.append((ptm, mod_residue, relative_position,
-                                                      f"{mod_residue}{relative_position+1}[{mod_annotation}]"))
+                                modifications.append((
+                                    ptm,
+                                    mod_residue,
+                                    relative_position,
+                                    f"{mod_residue}{relative_position+1}[{mod_annotation}]"
+                                ))
                 i = end + 1
             else:
-                clean_peptide += peptide[i]
+                # unmatched '[', treat it as a literal char
+                clean_peptide += ch
                 i += 1
+
         else:
-            clean_peptide += peptide[i]
+            # ----- Non-bracket branch -----
+            # Lowercase s/t/y are considered phospho (if requested)
+            # ----- Non-bracket branch -----
+            for ptm in ptm_types:
+                if ptm == 'Phosphorylation' and ch in 'sty':
+                    # normalize to uppercase in clean peptide
+                    upper = ch.upper()
+                    relative_position = len(clean_peptide)
+                    clean_peptide += upper
+                    modifications.append((
+                        'Phosphorylation',
+                        upper,
+                        relative_position,
+                        f"{upper}{relative_position+1}[phospho]"
+                    ))
+                    break
+            else:
+                # if no PTM condition matched, just add the character as-is
+                clean_peptide += ch.upper() if ch.isalpha() else ch
             i += 1
 
     return clean_peptide, modifications
