@@ -84,6 +84,7 @@ def main():
         username = st.text_input("Username", value=st.session_state.get("username",""))
         org = st.text_input("Organization", value=st.session_state.get("org",""))
         lab_pi = st.text_input("Lab PI", value=st.session_state.get("lab_pi",""))
+        ms_raw = st.text_input("Source of Raw MS data (please provide a link)", value=st.session_state.get("ms_raw",""))
         consent = st.checkbox("I agree to share uploaded FASTA files for QC and aggregate analysis",
                             value=st.session_state.get("consent", False))
 
@@ -95,6 +96,8 @@ def main():
                 st.error("Please enter the Organization.")
             elif not lab_pi:
                 st.error("Please enter the Lab PI.")
+            elif not ms_raw:
+                st.error("Please enter the source of the raw MS data")
             elif not consent:
                 st.error("Please agree to the consent checkbox to continue.")
             else:
@@ -102,12 +105,14 @@ def main():
                     'username': username,
                     'org': org,
                     'lab_pi': lab_pi,
+                    'ms_raw':ms_raw,
                     'consent': consent,
                     'authenticated': True
                 })
-                st.success(f"Username {username} recorded!")
-                st.success(f"Organization {org} recorded!")
-                st.success(f"Lab PI {lab_pi} recorded!")
+                # st.success(f"Username {username} recorded!")
+                # st.success(f"Organization {org} recorded!")
+                # st.success(f"Lab PI {lab_pi} recorded!")
+                st.success(f"Please click Enter again to proceed")
 
 if __name__ == '__main__':
     main()
