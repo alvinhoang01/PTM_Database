@@ -85,7 +85,7 @@ def main():
         org = st.text_input("Organization", value=st.session_state.get("org",""))
         lab_pi = st.text_input("Lab PI", value=st.session_state.get("lab_pi",""))
         ms_raw = st.text_input("Source of Raw MS data (please provide a link)", value=st.session_state.get("ms_raw",""))
-        consent = st.checkbox("I agree to share uploaded FASTA files for QC and aggregate analysis",
+        consent = st.checkbox("I agree to share the uploaded peptides for aggregate analysis",
                             value=st.session_state.get("consent", False))
 
         enter_clicked = st.button("Enter")
